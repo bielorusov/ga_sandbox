@@ -1,0 +1,88 @@
+#!/bin/bash
+
+export RAILS_ENV=test
+
+RUBY_VERSION=2.6.2
+GALORE_PATH="$(cd $(dirname "$0") && cd ../galore && pwd)"
+GA_PATH="$(dirname "$0")"
+
+function run_cmd(){
+  bash -l -c "$1"
+}
+
+function make_solr_bkp(){
+  echo 'Make BKP of SOLR dir'
+  mv ${GALORE_PATH}/solr ${GA_PATH}/tmp/
+}
+
+function restore_solr_bkp(){
+  echo 'Restore SOLR dir from BKP'
+  rm -rf $GALORE_PATH/solr
+  mv $GA_PATH/tmp/solr $GALORE_PATH/solr
+}
+
+echo 'Kill Sunspot solr process...'
+kill $(ps aux | grep 'sunspot' | awk '{print $2}')
+
+make_solr_bkp
+
+echo 'Make SOLR dirs...'
+mkdir -p ${GALORE_PATH}/solr/configsets/sunspot/conf
+mkdir -p ${GALORE_PATH}/solr/${RAILS_ENV}/pids
+mkdir -p ${GALORE_PATH}/solr/${RAILS_ENV}/conf
+
+echo 'Configure SOLR...'
+cp ${GA_PATH}/configs/core.properties.${RAILS_ENV} ${GALORE_PATH}/solr/${RAILS_ENV}/core.properties
+cp ${GA_PATH}/configs/solr.xml ${GALORE_PATH}/solr/solr.xml
+cp ${GA_PATH}/configs/schema.xml ${GALORE_PATH}/solr/configsets/sunspot/conf/schema.xml
+cp ${GA_PATH}/configs/solrconfig.xml ${GALORE_PATH}/solr/configsets/sunspot/conf/solrconfig.xml
+cp ${GA_PATH}/configs/schema.xml ${GALORE_PATH}/solr/${RAILS_ENV}/conf/schema.xml
+cp ${GA_PATH}/configs/solrconfig.xml ${GALORE_PATH}/solr/${RAILS_ENV}/conf/solrconfig.xml
+
+cd $GALORE_PATH
+run_cmd "rvm use ${RUBY_VERSION}"
+# run_cmd "ruby --version"
+
+echo 'DB Setup...'
+run_cmd "bundle exec rake db:setup"
+
+echo 'starting SOLR...'
+run_cmd "bundle exec rake sunspot:solr:start"
+
+echo 'Wait for SOLR start...'
+sleep 5
+
+echo 'REINDEX solr...'
+run_cmd "bundle exec rake sunspot:solr:reindex"
+
+echo '***** CONTROLLERS *****'
+run_cmd "rails test test/controllers/**/*_test.rb"
+
+echo '***** DATABASE *****'
+run_cmd "rails test test/db/**/*_test.rb"
+
+echo '***** HELPERS *****'
+run_cmd "rails test test/helpers/**/*_test.rb"
+
+echo '***** JOBS *****'
+run_cmd "rails test test/jobs/**/*_test.rb"
+
+echo '***** LOGGERS *****'
+run_cmd "rails test test/loggers/**/*_test.rb"
+
+echo '***** MAILERS *****'
+run_cmd "rails test test/mailers/**/*_test.rb"
+
+echo '***** MODELS *****'
+run_cmd "rails test test/models/**/*_test.rb"
+
+echo '***** NOTIFIERS *****'
+run_cmd "rails test test/notifiers/**/*_test.rb"
+
+echo '***** SERVICES *****'
+run_cmd "rails test test/services/**/*_test.rb"
+
+echo '***** SYSTEM *****'
+run_cmd "rails test test/system/**/*_test.rb"
+
+restore_solr_bkp

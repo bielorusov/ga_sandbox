@@ -1,0 +1,44 @@
+version: '3.7'
+services:
+  pg_server:
+    image: postgres:11.8
+    environment:
+      - PG_LOCAL_DATA=/var/lib/postgresql/data
+      - PGDATA=/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pg_data_volume:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - galore_ntwrk
+  redis_server:
+    image: 'bitnami/redis:latest'
+    ports:
+      - "6379:6379"
+    deploy:
+      replicas: 3
+      placement:
+        constraints: [node.role == worker]
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 1024M
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+    volumes:
+      - redis_data_volume:/bitnami/redis/data
+    networks:
+      - galore_ntwrk
+volumes:
+  pg_data_volume:
+    driver: local
+  redis_data_volume:
+    driver: local
+networks:
+  elk:
+    driver: bridge
+  galore_ntwrk:
+    driver: bridge

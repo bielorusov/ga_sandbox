@@ -1,0 +1,13 @@
+test:
+  solr:
+    hostname: localhost
+    port: 8981
+    log_level: WARNING
+    path: /solr/test
+
+development:
+  solr:
+    hostname: localhost
+    port: 8982
+    log_level: WARNING
+    path: /solr/development

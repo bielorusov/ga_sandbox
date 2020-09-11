@@ -1,0 +1,40 @@
+#!/bin/bash
+
+export RAILS_ENV=development
+
+RUBY_VERSION=2.6.2
+GALORE_PATH="$(cd $(dirname "$0") && cd ../galore && pwd)"
+GA_PATH="$(dirname "$0")"
+
+function run_cmd(){
+  bash -l -c "$1"
+}
+
+echo 'Kill Sunspot solr process...'
+kill $(ps aux | grep 'sunspot' | awk '{print $2}')
+
+echo 'Make SOLR dirs...'
+mkdir -p ${GALORE_PATH}/solr/configsets/sunspot/conf
+mkdir -p ${GALORE_PATH}/solr/${RAILS_ENV}/pids
+mkdir -p ${GALORE_PATH}/solr/${RAILS_ENV}/conf
+
+echo 'Configure SOLR...'
+cp ${GA_PATH}/configs/core.properties.${RAILS_ENV} ${GALORE_PATH}/solr/${RAILS_ENV}/core.properties
+cp ${GA_PATH}/configs/solr.xml ${GALORE_PATH}/solr/solr.xml
+cp ${GA_PATH}/configs/schema.xml ${GALORE_PATH}/solr/configsets/sunspot/conf/schema.xml
+cp ${GA_PATH}/configs/solrconfig.xml ${GALORE_PATH}/solr/configsets/sunspot/conf/solrconfig.xml
+cp ${GA_PATH}/configs/schema.xml ${GALORE_PATH}/solr/${RAILS_ENV}/conf/schema.xml
+cp ${GA_PATH}/configs/solrconfig.xml ${GALORE_PATH}/solr/${RAILS_ENV}/conf/solrconfig.xml
+
+cd $GALORE_PATH
+run_cmd "rvm use ${RUBY_VERSION}"
+run_cmd "ruby --version"
+
+echo 'starting SOLR...'
+run_cmd "bundle exec rake sunspot:solr:start"
+
+echo 'Sleeping, 5 sec...'
+sleep 5
+
+echo 'REINDEX solr...'
+run_cmd "bundle exec rake sunspot:solr:reindex"
