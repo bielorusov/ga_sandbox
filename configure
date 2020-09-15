@@ -1,0 +1,14 @@
+#!/bin/bash
+
+echo 'Make SOLR dirs...'
+mkdir -p ${GALORE_PATH}/solr/configsets/sunspot/conf
+mkdir -p ${GALORE_PATH}/solr/${RAILS_ENV}/pids
+mkdir -p ${GALORE_PATH}/solr/${RAILS_ENV}/conf
+
+echo 'Configure SOLR...'
+cp ${GA_PATH}/configs/core.properties.${RAILS_ENV} ${GALORE_PATH}/solr/${RAILS_ENV}/core.properties
+cp ${GA_PATH}/configs/solr.xml ${GALORE_PATH}/solr/solr.xml
+cp ${GA_PATH}/configs/schema.xml ${GALORE_PATH}/solr/configsets/sunspot/conf/schema.xml
+cp ${GA_PATH}/configs/solrconfig.xml ${GALORE_PATH}/solr/configsets/sunspot/conf/solrconfig.xml
+cp ${GA_PATH}/configs/schema.xml ${GALORE_PATH}/solr/${RAILS_ENV}/conf/schema.xml
+cp ${GA_PATH}/configs/solrconfig.xml ${GALORE_PATH}/solr/${RAILS_ENV}/conf/solrconfig.xml

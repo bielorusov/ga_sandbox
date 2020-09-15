@@ -2,46 +2,44 @@
 
 export RAILS_ENV=test
 
-RUBY_VERSION=2.6.2
-GALORE_PATH="$(cd $(dirname "$0") && cd ../galore && pwd)"
-GA_PATH="$(dirname "$0")"
+export RUBY_VERSION=2.6.2
+export GALORE_PATH="$(cd $(dirname "$0") && cd ../galore && pwd)"
+export GA_PATH="$(dirname "$0")"
 
 function run_cmd(){
   bash -l -c "$1"
 }
 
-function make_solr_bkp(){
-  echo 'Make BKP of SOLR dir'
-  mv ${GALORE_PATH}/solr ${GA_PATH}/tmp/
-}
-
-function restore_solr_bkp(){
-  echo 'Restore SOLR dir from BKP'
-  rm -rf $GALORE_PATH/solr
-  mv $GA_PATH/tmp/solr $GALORE_PATH/solr
+function ask(){
+  while true; do
+    read -p "$1 [$2] (y/n)?" yn
+    case $yn in
+        [Yy]* ) run_cmd $2; break;;
+        [Nn]* ) exit;;
+        * ) echo "Please answer yes or no.";;
+    esac
+  done
 }
 
 echo 'Kill Sunspot solr process...'
 kill $(ps aux | grep 'sunspot' | awk '{print $2}')
 
-make_solr_bkp
 
-echo 'Make SOLR dirs...'
-mkdir -p ${GALORE_PATH}/solr/configsets/sunspot/conf
-mkdir -p ${GALORE_PATH}/solr/${RAILS_ENV}/pids
-mkdir -p ${GALORE_PATH}/solr/${RAILS_ENV}/conf
-
-echo 'Configure SOLR...'
-cp ${GA_PATH}/configs/core.properties.${RAILS_ENV} ${GALORE_PATH}/solr/${RAILS_ENV}/core.properties
-cp ${GA_PATH}/configs/solr.xml ${GALORE_PATH}/solr/solr.xml
-cp ${GA_PATH}/configs/schema.xml ${GALORE_PATH}/solr/configsets/sunspot/conf/schema.xml
-cp ${GA_PATH}/configs/solrconfig.xml ${GALORE_PATH}/solr/configsets/sunspot/conf/solrconfig.xml
-cp ${GA_PATH}/configs/schema.xml ${GALORE_PATH}/solr/${RAILS_ENV}/conf/schema.xml
-cp ${GA_PATH}/configs/solrconfig.xml ${GALORE_PATH}/solr/${RAILS_ENV}/conf/solrconfig.xml
+ask 'Are you want to reconfigure SOLR?', "$GA_PATH/configure"
 
 cd $GALORE_PATH
-run_cmd "rvm use ${RUBY_VERSION}"
-# run_cmd "ruby --version"
+
+if which rbenv
+then
+  echo 'rbenv found, no action needed'
+elif which rvm
+then
+  run_cmd "rvm use ${RUBY_VERSION}"
+  run_cmd "ruby --version"
+else
+  echo 'Please install rbenv or rvm'
+  exit 1
+fi
 
 echo 'DB Setup...'
 run_cmd "bundle exec rake db:setup"
@@ -55,6 +53,7 @@ sleep 5
 echo 'REINDEX solr...'
 run_cmd "bundle exec rake sunspot:solr:reindex"
 
+# INFO: Tests
 echo '***** CONTROLLERS *****'
 run_cmd "rails test test/controllers/**/*_test.rb"
 
@@ -84,5 +83,3 @@ run_cmd "rails test test/services/**/*_test.rb"
 
 echo '***** SYSTEM *****'
 run_cmd "rails test test/system/**/*_test.rb"
-
-restore_solr_bkp
